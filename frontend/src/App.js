@@ -76,11 +76,17 @@ const Chat = ({ user, room, onBack, onChatClosed }) => {
   const [messageList, setMessageList] = useState([]);
   const [chatClosed, setChatClosed] = useState(false);
   const [closedData, setClosedData] = useState(null);
-  const [supplierJoined, setSupplierJoined] = useState(user.role === 'supplier'); // Suppliers can always send messages
+  const [supplierJoined, setSupplierJoined] = useState(true); // Allow both vendor and supplier to send messages immediately
 
   const sendMessage = async () => {
-    if (currentMessage !== "" && !chatClosed && supplierJoined) {
-      const messageData = { room: room, author: user.name, message: currentMessage, time: new Date(Date.now()).toLocaleTimeString() };
+    if (currentMessage !== "" && !chatClosed) {
+      const messageData = {
+        room: room,
+        author: user.name,
+        message: currentMessage,
+        time: new Date(Date.now()).toLocaleTimeString(),
+        senderRole: user.role
+      };
       await socket.emit("send_message", messageData);
       setMessageList((list) => [...list, messageData]);
       setCurrentMessage("");
@@ -92,6 +98,17 @@ const Chat = ({ user, room, onBack, onChatClosed }) => {
     socket.emit("join_room", { room, userRole: user.role });
 
     const messageHandler = (data) => { setMessageList((list) => [...list, data]); };
+
+    const previousMessagesHandler = (messages) => {
+      // Load previous messages when supplier joins
+      const formattedMessages = messages.map(msg => ({
+        author: msg.sender,
+        message: msg.message,
+        time: new Date(msg.timestamp).toLocaleTimeString(),
+        senderRole: msg.senderRole
+      }));
+      setMessageList(formattedMessages);
+    };
 
     const chatClosedHandler = (data) => {
       setChatClosed(true);
@@ -116,11 +133,13 @@ const Chat = ({ user, room, onBack, onChatClosed }) => {
     };
 
     socket.on("receive_message", messageHandler);
+    socket.on("previous_messages", previousMessagesHandler);
     socket.on("chat_closed", chatClosedHandler);
     socket.on("supplier_joined", supplierJoinedHandler);
 
     return () => {
       socket.off("receive_message", messageHandler);
+      socket.off("previous_messages", previousMessagesHandler);
       socket.off("chat_closed", chatClosedHandler);
       socket.off("supplier_joined", supplierJoinedHandler);
     };
@@ -159,11 +178,6 @@ const Chat = ({ user, room, onBack, onChatClosed }) => {
               <p className="text-red-700 text-sm font-semibold">Chat has been closed by the supplier</p>
             </div>
           )}
-          {!supplierJoined && user.role === 'vendor' && !chatClosed && (
-            <div className="mt-2 p-2 bg-yellow-100 border border-yellow-400 rounded-md">
-              <p className="text-yellow-700 text-sm font-semibold">Waiting for supplier to join the chat...</p>
-            </div>
-          )}
         </div>
         <div className="h-80 overflow-y-auto mb-4 p-2 bg-gray-50 rounded-md">
           {messageList.map((msg, index) => (
@@ -186,13 +200,12 @@ const Chat = ({ user, room, onBack, onChatClosed }) => {
             <input
               type="text"
               value={currentMessage}
-              placeholder={supplierJoined ? "Type your message..." : "Waiting for supplier to join..."}
+              placeholder="Type your message..."
               onChange={(e) => setCurrentMessage(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-              disabled={!supplierJoined}
-              className={`flex-grow p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-yellow-400 ${!supplierJoined ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className="flex-grow p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
             />
-            <Button onClick={sendMessage} disabled={!supplierJoined} className={`w-auto rounded-l-none ${!supplierJoined ? 'opacity-50 cursor-not-allowed' : ''}`}>Send</Button>
+            <Button onClick={sendMessage} className="w-auto rounded-l-none">Send</Button>
           </div>
         )}
       </Card>
@@ -417,8 +430,15 @@ const VendorDashboard = ({ user, token, onLogout }) => {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to generate list.');
+
       setIngredients(data.ingredients);
-      setMessage('');
+
+      // Show fallback message if AI quota exceeded
+      if (data.fallback) {
+        setMessage(data.message || 'Using fallback ingredients - AI service temporarily unavailable');
+      } else {
+        setMessage('');
+      }
     } catch (error) {
       setMessage(error.message);
     } finally {

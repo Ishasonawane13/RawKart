@@ -1,5 +1,8 @@
 // index.js - The entry point for our RawKart backend server
 
+// Load environment variables first
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
@@ -11,6 +14,8 @@ const { Server } = require("socket.io");
 const User = require('./models/User');
 const Inventory = require('./models/Inventory');
 const Order = require('./models/Order');
+const Message = require('./models/Message');
+const ChatRoom = require('./models/ChatRoom');
 // --------------------
 
 const app = express();
@@ -19,8 +24,11 @@ const server = http.createServer(app);
 // --- Initialize Socket.io ---
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3000", // Allow connections from our React frontend
-        methods: ["GET", "POST"]
+        origin: process.env.NODE_ENV === 'production'
+            ? ["https://your-vercel-domain.vercel.app", "https://rawkart-app.vercel.app"]
+            : "http://localhost:3000",
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
@@ -30,7 +38,12 @@ connectDB();
 const PORT = process.env.PORT || 5000;
 
 // Configure Middleware
-app.use(cors());
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production'
+        ? ["https://your-vercel-domain.vercel.app", "https://rawkart-app.vercel.app"]
+        : "http://localhost:3000",
+    credentials: true
+}));
 app.use(express.json());
 
 // Make Socket.io instance available to routes
@@ -43,7 +56,9 @@ app.use((req, res, next) => {
     req.models = {
         User,
         Inventory,
-        Order
+        Order,
+        Message,
+        ChatRoom
     };
     next();
 });
@@ -63,23 +78,57 @@ io.on('connection', (socket) => {
     });
 
     // Logic to handle joining a chat room
-    socket.on('join_room', (data) => {
+    socket.on('join_room', async (data) => {
         socket.join(data.room);
-        console.log(`User with ID: ${socket.id} joined room: ${data.room}`);
+        console.log(`User with ID: ${socket.id} joined room: ${data.room} as ${data.userRole}`);
 
-        // Notify the room that supplier has joined (enables vendor messaging)
-        if (data.userRole === 'supplier') {
-            socket.to(data.room).emit('supplier_joined', {
-                message: 'Supplier has joined the chat. You can now send messages.',
-                room: data.room
-            });
+        // Send previous messages to the user who just joined
+        try {
+            const previousMessages = await Message.find({ room: data.room })
+                .sort({ timestamp: 1 })
+                .limit(50); // Limit to last 50 messages
+
+            if (previousMessages.length > 0) {
+                socket.emit('previous_messages', previousMessages);
+            }
+        } catch (error) {
+            console.error('Error loading previous messages:', error);
         }
     });
 
     // Logic to handle sending a message
-    socket.on('send_message', (data) => {
-        // Broadcast the received message to everyone in the same room
-        socket.to(data.room).emit('receive_message', data);
+    socket.on('send_message', async (data) => {
+        try {
+            console.log(`📨 Message received from ${data.author} in room ${data.room}: ${data.message}`);
+
+            // Save message to database
+            const newMessage = new Message({
+                room: data.room,
+                sender: data.author,
+                senderRole: data.senderRole || 'vendor',
+                message: data.message,
+                timestamp: new Date()
+            });
+
+            await newMessage.save();
+            console.log(`💾 Message saved to database`);
+
+            // Broadcast the message to everyone in the room
+            const messageData = {
+                ...data,
+                _id: newMessage._id,
+                timestamp: newMessage.timestamp
+            };
+
+            // Send to all users in the room (including sender)
+            io.to(data.room).emit('receive_message', messageData);
+            console.log(`📤 Message broadcasted to room ${data.room}`);
+
+        } catch (error) {
+            console.error('Error saving/broadcasting message:', error);
+            // Still broadcast even if save fails
+            socket.to(data.room).emit('receive_message', data);
+        }
     });
 
     socket.on('disconnect', () => {
@@ -102,6 +151,7 @@ app.use('/api/users', require('./routes/Users'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/orders', require('./routes/orders'));
+app.use('/api/messages', require('./routes/messages'));
 
 
 // Start the Server (use server.listen instead of app.listen)

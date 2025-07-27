@@ -3,13 +3,28 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const config = require('config');
 
 // Import the Google AI SDK
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Initialize the Generative AI model with the API key from your config
-const genAI = new GoogleGenerativeAI(config.get('geminiApiKey'));
+// Validate that the API key exists
+if (!process.env.GEMINI_API_KEY) {
+    console.error('❌ GEMINI_API_KEY is not set in environment variables');
+}
+
+// Initialize the Generative AI model with the API key from environment variables
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Predefined fallback ingredients for common Indian street foods
+const fallbackIngredients = {
+    'vada pav': ['Potatoes', 'Green chilies', 'Ginger', 'Mustard seeds', 'Curry leaves', 'Turmeric', 'Bread rolls', 'Chickpea flour', 'Oil', 'Tamarind chutney'],
+    'momos': ['All-purpose flour', 'Minced meat/vegetables', 'Onions', 'Garlic', 'Ginger', 'Soy sauce', 'Salt', 'Black pepper', 'Green chilies', 'Coriander leaves'],
+    'pani puri': ['Semolina', 'All-purpose flour', 'Potatoes', 'Chickpeas', 'Tamarind', 'Mint leaves', 'Green chilies', 'Ginger', 'Black salt', 'Cumin powder'],
+    'dosa': ['Rice', 'Black gram dal', 'Fenugreek seeds', 'Salt', 'Oil', 'Potatoes', 'Onions', 'Mustard seeds', 'Curry leaves', 'Turmeric'],
+    'samosa': ['All-purpose flour', 'Potatoes', 'Green peas', 'Onions', 'Ginger', 'Green chilies', 'Cumin seeds', 'Coriander seeds', 'Garam masala', 'Oil'],
+    'chaat': ['Potatoes', 'Chickpeas', 'Yogurt', 'Tamarind chutney', 'Mint chutney', 'Onions', 'Tomatoes', 'Sev', 'Chat masala', 'Green chilies'],
+    'default': ['Flour', 'Oil', 'Salt', 'Onions', 'Tomatoes', 'Green chilies', 'Ginger', 'Garlic', 'Spices', 'Water']
+};
 
 /**
  * @route   POST /api/ai/generate-ingredients
@@ -59,7 +74,40 @@ router.post('/generate-ingredients', auth, async (req, res) => {
     } catch (error) {
         console.error("--- ERROR CALLING GEMINI API ---");
         console.error("Full Error Object:", error);
-        res.status(500).json({ message: "Failed to generate ingredients from AI. Check server logs for details." });
+
+        // Check if it's a quota exceeded error (429)
+        if (error.status === 429) {
+            console.log("🔄 Quota exceeded, using fallback ingredients for:", foodItem);
+
+            // Try to find fallback ingredients for the food item
+            const foodKey = foodItem.toLowerCase().trim();
+            let fallbackIngredientsList = fallbackIngredients[foodKey];
+
+            // If no specific fallback found, try partial matches
+            if (!fallbackIngredientsList) {
+                const matchingKey = Object.keys(fallbackIngredients).find(key =>
+                    foodKey.includes(key) || key.includes(foodKey)
+                );
+                fallbackIngredientsList = fallbackIngredients[matchingKey] || fallbackIngredients.default;
+            }
+
+            return res.json({
+                ingredients: fallbackIngredientsList,
+                message: "Using fallback ingredients - AI quota exceeded for today",
+                fallback: true
+            });
+        }
+
+        // For other errors, still provide fallback
+        console.log("🔄 Using fallback ingredients due to AI error for:", foodItem);
+        const foodKey = foodItem.toLowerCase().trim();
+        let fallbackIngredientsList = fallbackIngredients[foodKey] || fallbackIngredients.default;
+
+        res.json({
+            ingredients: fallbackIngredientsList,
+            message: "Using fallback ingredients - AI service temporarily unavailable",
+            fallback: true
+        });
     }
 });
 
