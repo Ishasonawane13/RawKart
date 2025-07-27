@@ -78,7 +78,6 @@ const Chat = ({ user, room, onBack, onChatClosed }) => {
   const [messageList, setMessageList] = useState([]);
   const [chatClosed, setChatClosed] = useState(false);
   const [closedData, setClosedData] = useState(null);
-  const [supplierJoined, setSupplierJoined] = useState(true); // Allow both vendor and supplier to send messages immediately
 
   const sendMessage = async () => {
     if (currentMessage !== "" && !chatClosed) {
@@ -123,27 +122,14 @@ const Chat = ({ user, room, onBack, onChatClosed }) => {
       }]);
     };
 
-    const supplierJoinedHandler = (data) => {
-      setSupplierJoined(true);
-      setMessageList((list) => [...list, {
-        author: "System",
-        message: data.message,
-        time: new Date().toLocaleTimeString(),
-        isSystem: true,
-        isPositive: true
-      }]);
-    };
-
     socket.on("receive_message", messageHandler);
     socket.on("previous_messages", previousMessagesHandler);
     socket.on("chat_closed", chatClosedHandler);
-    socket.on("supplier_joined", supplierJoinedHandler);
 
     return () => {
       socket.off("receive_message", messageHandler);
       socket.off("previous_messages", previousMessagesHandler);
       socket.off("chat_closed", chatClosedHandler);
-      socket.off("supplier_joined", supplierJoinedHandler);
     };
   }, [room, user.role]);
 
