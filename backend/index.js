@@ -19,10 +19,18 @@ app.use(express.json()); // Parse JSON request bodies
 
 // --- 4. Database Connection ---
 // IMPORTANT: Replace with your actual MongoDB connection string
-const MONGO_URI = 'YOUR_MONGODB_CONNECTION_STRING'; 
-mongoose.connect(MONGO_URI)
-    .then(() => console.log("MongoDB connected successfully"))
-    .catch(err => console.error("MongoDB connection error:", err));
+const MONGO_URI = 'mongodb+srv://anushka_sharma:oaSeMo8Y7l4z33mo@cluster0.ym4b7.mongodb.net/'; 
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    console.log("MongoDB connected successfully");
+    app.listen(PORT, () => {
+      console.log(`RawKart server is running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1); // Exit on failure
+  });
 
 // --- 5. Define API Routes ---
 // Tell Express to use the imported route files.
