@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 
-const socket = io.connect("http://localhost:5000");
+// Use environment variable for API and Socket URLs
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const socket = io.connect(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000');
 
 // --- Helper Components ---
 const Card = ({ children, className }) => (<div className={`bg-white shadow-md rounded-lg p-6 ${className}`}>{children}</div>);
@@ -37,7 +39,7 @@ const AuthScreen = ({ role, onBack, onLoginSuccess }) => {
     setMessage('Processing...');
     try {
       const payload = isLogin ? { mobile: formData.mobile, password: formData.password } : { ...formData, role };
-      const response = await fetch(`http://localhost:5000/api/users/${endpoint}`, {
+      const response = await fetch(`${API_URL}/api/users/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -228,8 +230,8 @@ const SupplierDashboard = ({ user, token, onLogout }) => {
       setMessage('Loading data...');
       try {
         const [invResponse, ordersResponse] = await Promise.all([
-          fetch('http://localhost:5000/api/inventory', { headers: { 'x-auth-token': token } }),
-          fetch('http://localhost:5000/api/orders/supplier', { headers: { 'x-auth-token': token } })
+          fetch(`${API_URL}/api/inventory`, { headers: { 'x-auth-token': token } }),
+          fetch(`${API_URL}/api/orders/supplier`, { headers: { 'x-auth-token': token } })
         ]);
         const invData = await invResponse.json();
         const ordersData = await ordersResponse.json();
@@ -269,7 +271,7 @@ const SupplierDashboard = ({ user, token, onLogout }) => {
     e.preventDefault();
     setFormMessage('Adding item...');
     try {
-      const response = await fetch('http://localhost:5000/api/inventory/add', {
+      const response = await fetch(`${API_URL}/api/inventory/add`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': token }, body: JSON.stringify(newItem),
       });
       const data = await response.json();
@@ -294,7 +296,7 @@ const SupplierDashboard = ({ user, token, onLogout }) => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      const response = await fetch(`${API_URL}/api/orders/${orderId}`, {
         method: 'DELETE',
         headers: { 'x-auth-token': token }
       });
@@ -378,7 +380,7 @@ const SearchResultsPage = ({ user, ingredient, searchResults, isLoading, message
               const chatRoomId = [user.id, item.supplier._id].sort().join('_');
               const handlePurchaseClick = async () => {
                 // Create the order first
-                await fetch('http://localhost:5000/api/orders', {
+                await fetch(`${API_URL}/api/orders`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
                   body: JSON.stringify({
@@ -425,7 +427,7 @@ const VendorDashboard = ({ user, token, onLogout }) => {
     setIngredients([]);
     setSearchResults([]);
     try {
-      const response = await fetch('http://localhost:5000/api/ai/generate-ingredients', {
+      const response = await fetch(`${API_URL}/api/ai/generate-ingredients`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': token }, body: JSON.stringify({ foodItem: item }),
       });
       const data = await response.json();
@@ -453,7 +455,7 @@ const VendorDashboard = ({ user, token, onLogout }) => {
     setSearchResults([]);
     setView('searchResults');
     try {
-      const response = await fetch(`http://localhost:5000/api/inventory/search/${ingredient}`, { headers: { 'x-auth-token': token } });
+      const response = await fetch(`${API_URL}/api/inventory/search/${ingredient}`, { headers: { 'x-auth-token': token } });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Search failed.');
       setSearchResults(data);
@@ -478,7 +480,7 @@ const VendorDashboard = ({ user, token, onLogout }) => {
 
       const chatRoomId = [user.id, closedData.supplier].sort().join('_');
 
-      const response = await fetch('http://localhost:5000/api/orders', {
+      const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
         body: JSON.stringify({
