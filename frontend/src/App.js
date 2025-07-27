@@ -1,163 +1,196 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// --- Helper Components for UI (No changes here) ---
+// --- Helper Components for UI (Imported from components directory) ---
+// These components are now defined in src/components/Card.js and src/components/Button.js
+import { Card } from './components/Card';
+import { Button } from './components/Button';
 
-const Card = ({ children, className }) => (
-  <div className={`bg-white shadow-md rounded-lg p-6 ${className}`}>
-    {children}
-  </div>
-);
+// --- Main Application Screens (Importing from pages directory) ---
+// These components are now defined in their respective files in src/pages/
+import LandingScreen from './pages/LandingScreen';
+import AuthScreen from './pages/AuthScreen';
+import HomePage from './pages/HomePage';
+import GullyOrderDetailsPage from './pages/GullyOrderDetailsPage';
+import ProfilePage from './pages/ProfilePage';
+import NotFoundPage from './pages/NotFoundPage';
 
-const Button = ({ children, onClick, className = '', type = 'primary', isSubmit = false }) => {
-  const baseClasses = 'w-full font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-75 transition duration-150 ease-in-out';
-  const typeClasses = {
-    primary: 'bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-400',
-    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400',
-  };
-  return (
-    <button type={isSubmit ? 'submit' : 'button'} onClick={onClick} className={`${baseClasses} ${typeClasses[type]} ${className}`}>
-      {children}
-    </button>
-  );
-};
+// Mock Data for Gully Orders (In a real app, this comes from an API)
+const mockGullyOrders = [
+  {
+    id: 'gully1',
+    name: 'Kopar Bridge Daily Vegetables',
+    location: 'Dombivli East, Kopar Bridge',
+    items: [
+      { id: 'item1', name: 'Potatoes (A Grade)', unit: 'kg', pricePerUnit: 25, requiredTotal: 100 },
+      { id: 'item2', name: 'Onions (Red)', unit: 'kg', pricePerUnit: 20, requiredTotal: 80 },
+      { id: 'item3', name: 'Tomatoes', unit: 'kg', pricePerUnit: 30, requiredTotal: 60 },
+      { id: 'item4', name: 'Green Chillies', unit: '250g', pricePerUnit: 15, requiredTotal: 20 },
+    ],
+    deadline: '2025-07-28T22:00:00Z', // Tomorrow 10 PM IST
+    status: 'open', // open, closed, delivered
+    currentContributions: { // Vendor ID -> { itemId: quantity }
+      'vendor1': { 'item1': 5, 'item2': 3 },
+      'vendor2': { 'item1': 2, 'item3': 1 },
+    },
+    supplierBid: null, // Placeholder for supplier bid info
+    description: 'Daily fresh vegetables for street food vendors in Kopar Bridge area. Please place your orders before 10 PM for next day delivery.',
+  },
+  {
+    id: 'gully2',
+    name: 'Station Road Spices & Oil',
+    location: 'Dadar West, Station Road',
+    items: [
+      { id: 'item5', name: 'Refined Oil (Palmolein)', unit: 'Litre', pricePerUnit: 90, requiredTotal: 200 },
+      { id: 'item6', name: 'Turmeric Powder', unit: 'kg', pricePerUnit: 180, requiredTotal: 20 },
+      { id: 'item7', name: 'Cumin Seeds', unit: 'kg', pricePerUnit: 220, requiredTotal: 15 },
+    ],
+    deadline: '2025-07-29T10:00:00Z',
+    status: 'open',
+    currentContributions: {},
+    supplierBid: null,
+    description: 'Bulk order for cooking oil and essential spices for vendors near Dadar West Station.',
+  },
+  {
+    id: 'gully3',
+    name: 'Fish Market Daily Catch',
+    location: 'Bandra West, Pali Naka',
+    items: [
+      { id: 'item8', name: 'Pomfret', unit: 'kg', pricePerUnit: 450, requiredTotal: 50 },
+      { id: 'item9', name: 'Prawns', unit: 'kg', pricePerUnit: 300, requiredTotal: 40 },
+    ],
+    deadline: '2025-07-27T08:00:00Z', // Past deadline
+    status: 'closed',
+    currentContributions: {
+      'vendor3': { 'item8': 10, 'item9': 5 },
+    },
+    supplierBid: { supplierId: 'supplier1', price: 35000, status: 'accepted' },
+    description: 'Fresh catch from the Bandra fish market. This order has been closed and fulfilled.',
+  },
+];
 
-// --- Main Application Screens ---
-
-const LandingScreen = ({ onSelectRole }) => (
-  <div className="text-center">
-    <h2 className="text-3xl font-bold text-gray-800 mb-2">Join RawKart</h2>
-    <p className="text-gray-600 mb-8">Are you a Street Vendor or a Supplier?</p>
-    <div className="space-y-4">
-      <Button onClick={() => onSelectRole('vendor')}>
-        I'm a Street Vendor
-      </Button>
-      <Button onClick={() => onSelectRole('supplier')} type="secondary">
-        I'm a Raw Material Supplier
-      </Button>
-    </div>
-  </div>
-);
-
-// Screen 2: Login/Registration (NOW FUNCTIONAL)
-const AuthScreen = ({ role, onBack }) => {
-  // State to hold the form data
-  const [formData, setFormData] = useState({
-    name: '',
-    mobile: '',
-    password: '',
-  });
-  const [message, setMessage] = useState(''); // To show success/error messages
-
-  // Update state when user types in an input field
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  // Handle the form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault(); // Prevent default form submission which reloads the page
-    setMessage('Registering...');
-
-    try {
-      // The backend API endpoint we will create
-      const response = await fetch('http://localhost:5000/api/users/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ...formData, role }), // Send form data and the selected role
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // If server responds with an error
-        throw new Error(data.message || 'Something went wrong');
-      }
-
-      setMessage(`Success! User ${data.user.name} registered.`);
-      // Here you would typically redirect the user or clear the form
-
-    } catch (error) {
-      console.error('Registration failed:', error);
-      setMessage(error.message);
-    }
-  };
-
-  return (
-    <div>
-      <button onClick={onBack} className="text-yellow-600 hover:underline mb-4">&larr; Back</button>
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-        Register as a <span className="capitalize text-yellow-500">{role}</span>
-      </h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Full Name</label>
-          <input type="text" name="name" placeholder="Enter your full name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
-          <input type="tel" name="mobile" placeholder="Enter your 10-digit mobile number" value={formData.mobile} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Password</label>
-          <input type="password" name="password" placeholder="Create a password" value={formData.password} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500" />
-        </div>
-        <Button isSubmit={true} className="mt-2">Register</Button>
-      </form>
-      {message && <p className="text-center text-sm text-gray-600 mt-4">{message}</p>}
-      <p className="text-center text-sm text-gray-600 mt-4">
-        Already have an account? <a href="#" className="font-medium text-yellow-600 hover:underline">Log In</a>
-      </p>
-    </div>
-  );
-};
-
-
-// --- Main App Component (No changes here) ---
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('landing');
-  const [userRole, setUserRole] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null); // { name: 'Gargi Dhuri', role: 'vendor' }
+  const [gullyOrders, setGullyOrders] = useState(mockGullyOrders);
 
-  const handleSelectRole = (role) => {
-    setUserRole(role);
-    setCurrentScreen('auth');
+  // Function to simulate login/registration success
+  const handleAuthSuccess = (userData) => {
+    setIsLoggedIn(true);
+    setUser(userData);
+    console.log("Auth Success:", userData);
   };
 
-  const handleBackToLanding = () => {
-    setCurrentScreen('landing');
-    setUserRole(null);
-  }
+  // Function to simulate adding contribution to a gully order
+  const addGullyOrderContribution = (orderId, vendorId, contributions) => {
+    setGullyOrders(prevOrders =>
+      prevOrders.map(order =>
+        order.id === orderId
+          ? {
+              ...order,
+              currentContributions: {
+                ...order.currentContributions,
+                [vendorId]: {
+                  ...(order.currentContributions[vendorId] || {}), // Preserve existing contributions
+                  ...contributions, // Add/update new contributions
+                },
+              },
+            }
+          : order
+      )
+    );
+  };
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'auth':
-        return <AuthScreen role={userRole} onBack={handleBackToLanding} />;
-      case 'landing':
-      default:
-        return <LandingScreen onSelectRole={handleSelectRole} />;
-    }
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUser(null);
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen flex flex-col items-center justify-center font-sans">
-      <div className="w-full max-w-md mx-auto p-4">
-        <header className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-gray-800">RawKart</h1>
-        </header>
-        <main>
-          <Card>
-            {renderScreen()}
-          </Card>
-        </main>
-        <footer className="text-center mt-8 text-gray-500 text-sm">
-          <p>&copy; 2025 RawKart. Empowering local businesses.</p>
-        </footer>
+    <Router>
+      <div className="bg-gray-50 min-h-screen flex flex-col items-center justify-center font-sans">
+        <div className="w-full max-w-md mx-auto p-4">
+          <header className="text-center mb-8">
+            <h1 className="text-5xl font-bold text-gray-800">RawKart</h1>
+            {isLoggedIn && user && (
+              <nav className="mt-4 flex justify-center space-x-4">
+                <p className="text-gray-600">Welcome, {user.name} ({user.role})!</p>
+                <button onClick={handleLogout} className="text-red-500 hover:underline">Logout</button>
+              </nav>
+            )}
+          </header>
+          <main>
+            <Card> {/* Card component is imported */}
+              <Routes>
+                {/* Landing page - accessible if not logged in */}
+                <Route
+                  path="/"
+                  element={
+                    isLoggedIn ? (
+                      <Navigate to="/home" replace />
+                    ) : (
+                      <LandingScreen /> // LandingScreen is imported
+                    )
+                  }
+                />
+                {/* Auth page - accessible if not logged in */}
+                <Route
+                  path="/register"
+                  element={
+                    isLoggedIn ? (
+                      <Navigate to="/home" replace />
+                    ) : (
+                      <AuthScreen onRegisterSuccess={handleAuthSuccess} /> // AuthScreen is imported
+                    )
+                  }
+                />
+                {/* Protected Routes - only accessible if logged in */}
+                <Route
+                  path="/home"
+                  element={
+                    isLoggedIn ? (
+                      <HomePage user={user} gullyOrders={gullyOrders} />
+                    ) : (
+                      <Navigate to="/register" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/gully-orders/:id"
+                  element={
+                    isLoggedIn ? (
+                      <GullyOrderDetailsPage
+                        user={user}
+                        gullyOrders={gullyOrders}
+                        addGullyOrderContribution={addGullyOrderContribution}
+                      />
+                    ) : (
+                      <Navigate to="/register" replace />
+                    )
+                  }
+                />
+                 <Route
+                  path="/profile"
+                  element={
+                    isLoggedIn ? (
+                      <ProfilePage user={user} />
+                    ) : (
+                      <Navigate to="/register" replace />
+                    )
+                  }
+                />
+                {/* Catch-all for 404 Not Found */}
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Card>
+          </main>
+          <footer className="text-center mt-8 text-gray-500 text-sm">
+            <p>&copy; 2025 RawKart. Empowering local businesses.</p>
+          </footer>
+        </div>
       </div>
-    </div>
+    </Router>
   );
 }
