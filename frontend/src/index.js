@@ -4,6 +4,9 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+const priceSuggestionRoutes = require("./routes/priceSuggestion");
+app.use("/api/price-suggestions", priceSuggestionRoutes);
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
