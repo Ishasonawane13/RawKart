@@ -1,0 +1,5 @@
+{
+    "mongoURI": "placeholder_will_use_env_variable",
+    "jwtSecret": "placeholder_will_use_env_variable",
+    "geminiApiKey": "placeholder_will_use_env_variable"
+}
