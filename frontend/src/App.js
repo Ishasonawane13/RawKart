@@ -40,7 +40,8 @@ function App() {
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
         {renderView()}
       </div>
-    </div>
+      </div>
+    // </Router>
   );
 }
 
