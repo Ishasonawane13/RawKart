@@ -43,6 +43,22 @@ router.post('/', auth, async (req, res) => {
             return res.status(400).json({ message: 'Please provide supplier, inventory item, and chat room ID' });
         }
 
+        // Check for existing active order for this vendor, supplier, and item
+        const existingOrder = await Order.findOne({
+            vendor: req.user.id,
+            supplier: supplierId,
+            inventoryItem: inventoryItemId,
+            status: { $ne: 'closed' } // or whatever status means deleted/closed
+        });
+
+        if (existingOrder) {
+            // Already exists, return the existing order
+            return res.status(200).json({
+                message: 'Request already exists',
+                order: existingOrder
+            });
+        }
+
         const newOrder = new Order({
             vendor: req.user.id,
             supplier: supplierId,

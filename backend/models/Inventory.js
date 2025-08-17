@@ -5,15 +5,15 @@ const mongoose = require('mongoose');
 const InventorySchema = new mongoose.Schema({
     // Link to the user who is the supplier of this item.
     // This is a crucial link between the 'users' collection and this 'inventory' collection.
-    supplier: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // This refers to the 'User' model we created earlier
-        required: true,
-    },
     itemName: {
         type: String,
         required: true,
     },
+        supplier: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
     // e.g., "per Kg", "per Litre", "per Dozen"
     unit: {
         type: String,
@@ -39,6 +39,10 @@ const InventorySchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    image: {
+        type: String,
+        required: false,
+    }
 });
 
 module.exports = mongoose.model('Inventory', InventorySchema);

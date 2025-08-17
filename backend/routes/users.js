@@ -1,11 +1,31 @@
-// file: backend/routes/users.js
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const config = require('config');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User'); // Import User model directly
+
+/**
+ * @route   GET /api/suppliers/search
+ * @desc    Search for a supplier by name
+ * @access  Private
+ */
+router.get('/suppliers/search', async (req, res) => {
+    const { name } = req.query;
+    if (!name) {
+        return res.status(400).json({ message: 'Supplier name is required' });
+    }
+    try {
+        const supplier = await User.findOne({ name: { $regex: name, $options: 'i' }, role: 'supplier' });
+        if (!supplier) {
+            return res.status(404).json({ message: 'Supplier not found' });
+        }
+        res.json({ supplier });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
 
 /**
  * @route   POST /api/users/register

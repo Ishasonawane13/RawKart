@@ -44,7 +44,7 @@ app.use(cors({
         : "http://localhost:3000",
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Make Socket.io instance available to routes
 app.set('io', io);
@@ -147,7 +147,7 @@ app.get('/', (req, res) => {
 });
 
 // Use the defined routes
-app.use('/api/users', require('./routes/Users'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/orders', require('./routes/orders'));
